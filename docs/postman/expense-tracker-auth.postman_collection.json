@@ -1,0 +1,773 @@
+{
+  "info": {
+    "name": "Expense Tracker - Auth",
+    "description": "JWT auth flow for the Expense Tracker API. Run top to bottom (Collection Runner or `newman run`). Tokens are captured automatically into collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": "Passw0rd123"
+    },
+    {
+      "key": "newPassword",
+      "value": "NewPassw0rd456"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "previousToken",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json();",
+                  "pm.test(\"Returns the user, never the password\", () => {",
+                  "  pm.expect(u.email).to.eql(pm.collectionVariables.get(\"email\").toLowerCase());",
+                  "  pm.expect(u).to.not.have.property(\"password\");",
+                  "  pm.expect(u).to.not.have.property(\"password_hash\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"email\", `user_${Date.now()}@example.com`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Create an account. Email is lower-cased; password needs 8+ chars with a letter and a digit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Postman User\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "2. Register - duplicate email (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is conflict\", () => pm.expect(pm.response.json().error.code).to.eql(\"conflict\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "3. Register - weak password (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Error code is validation_error\", () => pm.expect(pm.response.json().error.code).to.eql(\"validation_error\"));",
+                  "pm.test(\"Points at the password field\", () => pm.expect(pm.response.json().error.details[0].field).to.eql(\"password\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"weak@example.com\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "4. Login - wrong password (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is unauthorized\", () => pm.expect(pm.response.json().error.code).to.eql(\"unauthorized\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"WrongPass999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "5. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns bearer access token\", () => {",
+                  "  pm.expect(body.token_type).to.eql(\"bearer\");",
+                  "  pm.expect(body.access_token.split(\".\")).to.have.lengthOf(3);",
+                  "  pm.expect(body.expires_in).to.be.above(0);",
+                  "});",
+                  "pm.test(\"Sets HttpOnly refresh cookie\", () => {",
+                  "  const c = pm.response.headers.filter(h => h.key.toLowerCase() === \"set-cookie\").map(h => h.value).join(\";\");",
+                  "  pm.expect(c).to.include(\"refresh_token=\");",
+                  "  pm.expect(c.toLowerCase()).to.include(\"httponly\");",
+                  "});",
+                  "pm.collectionVariables.set(\"previousToken\", pm.collectionVariables.get(\"accessToken\") || \"\");",
+                  "pm.collectionVariables.set(\"accessToken\", body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Returns a short-lived access token (body) and a refresh token (HttpOnly cookie, path /api/v1/auth).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected routes",
+      "item": [
+        {
+          "name": "6. Get my profile (protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Is the logged-in user\", () => pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get(\"email\").toLowerCase()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "Send the access token as `Authorization: Bearer <token>` (inherited from the collection)."
+          }
+        },
+        {
+          "name": "7. Update my profile (protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Profile updated\", () => { const u = pm.response.json(); pm.expect(u.name).to.eql(\"Renamed User\"); pm.expect(u.currency).to.eql(\"EUR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Renamed User\",\n  \"currency\": \"EUR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "8. Create transaction (protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Saved with user currency\", () => pm.expect(pm.response.json().currency).to.eql(\"EUR\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest({",
+                  "  url: pm.collectionVariables.get(\"baseUrl\") + \"/categories?type=expense\",",
+                  "  header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"accessToken\") },",
+                  "}, (err, res) => pm.collectionVariables.set(\"categoryId\", res.json()[0].id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{categoryId}}\",\n  \"title\": \"Coffee\",\n  \"amount\": \"4.50\",\n  \"transaction_date\": \"2026-10-27\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "9. No token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is unauthorized\", () => pm.expect(pm.response.json().error.code).to.eql(\"unauthorized\"));",
+                  "pm.test(\"WWW-Authenticate: Bearer\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.eql(\"Bearer\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "10. Invalid token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Says token is invalid\", () => pm.expect(pm.response.json().error.message).to.eql(\"Invalid access token\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "not.a.valid.jwt",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session lifecycle",
+      "item": [
+        {
+          "name": "11. Refresh access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns bearer access token\", () => {",
+                  "  pm.expect(body.token_type).to.eql(\"bearer\");",
+                  "  pm.expect(body.access_token.split(\".\")).to.have.lengthOf(3);",
+                  "  pm.expect(body.expires_in).to.be.above(0);",
+                  "});",
+                  "pm.test(\"Sets HttpOnly refresh cookie\", () => {",
+                  "  const c = pm.response.headers.filter(h => h.key.toLowerCase() === \"set-cookie\").map(h => h.value).join(\";\");",
+                  "  pm.expect(c).to.include(\"refresh_token=\");",
+                  "  pm.expect(c.toLowerCase()).to.include(\"httponly\");",
+                  "});",
+                  "pm.collectionVariables.set(\"previousToken\", pm.collectionVariables.get(\"accessToken\") || \"\");",
+                  "pm.collectionVariables.set(\"accessToken\", body.access_token);",
+                  "pm.test(\"New access token differs\", () => pm.expect(pm.collectionVariables.get(\"accessToken\")).to.not.eql(pm.collectionVariables.get(\"previousToken\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Uses the refresh_token cookie (Postman sends it automatically). Rotates: the old refresh token stops working.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "12. Use refreshed token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "13. Change password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"password\", pm.collectionVariables.get(\"newPassword\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "change-password"
+              ]
+            },
+            "description": "Also signs out every other session (all refresh tokens revoked).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "14. Login with new password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns bearer access token\", () => {",
+                  "  pm.expect(body.token_type).to.eql(\"bearer\");",
+                  "  pm.expect(body.access_token.split(\".\")).to.have.lengthOf(3);",
+                  "  pm.expect(body.expires_in).to.be.above(0);",
+                  "});",
+                  "pm.test(\"Sets HttpOnly refresh cookie\", () => {",
+                  "  const c = pm.response.headers.filter(h => h.key.toLowerCase() === \"set-cookie\").map(h => h.value).join(\";\");",
+                  "  pm.expect(c).to.include(\"refresh_token=\");",
+                  "  pm.expect(c.toLowerCase()).to.include(\"httponly\");",
+                  "});",
+                  "pm.collectionVariables.set(\"previousToken\", pm.collectionVariables.get(\"accessToken\") || \"\");",
+                  "pm.collectionVariables.set(\"accessToken\", body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "15. Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes the refresh token family and clears the cookie.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "16. Refresh after logout (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is unauthorized\", () => pm.expect(pm.response.json().error.code).to.eql(\"unauthorized\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
